@@ -133,7 +133,6 @@ class SinkroController extends Controller
                 ->table('instansi')
                 ->where('kantor_regional_id', '00')
                 ->where('jenis', 'P')
-                ->where('status', 'A')
                 ->select('id', 'nama')
                 ->get();
 
