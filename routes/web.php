@@ -35,6 +35,9 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     // Sinkro DMS - superadmin only
     Route::middleware('role:superadmin')->group(function () {
         Route::get('/sinkro', [SinkroController::class, 'index'])->name('sinkro.index');
+        Route::get('/sinkro/setting', [SinkroController::class, 'settingDms'])->name('sinkro.setting');
+        Route::post('/sinkro/setting', [SinkroController::class, 'updateSettingDms'])->name('sinkro.setting.update');
+        Route::post('/sinkro/test-connection', [SinkroController::class, 'testConnection'])->name('sinkro.test-connection');
         Route::post('/sinkro/instansi', [SinkroController::class, 'sinkroInstansi'])->name('sinkro.instansi');
         Route::post('/sinkro/arsip-pns', [SinkroController::class, 'sinkroArsipPns'])->name('sinkro.arsip-pns');
         Route::get('/sinkro/instansi/data', [SinkroController::class, 'instansiData'])->name('sinkro.instansi.data');

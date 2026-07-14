@@ -12,7 +12,16 @@
                 <p class="text-muted mb-0">Sinkronisasi data dari database DMS ke lokal.</p>
             </div>
         </div>
+        <a href="{{ route('admin.sinkro.setting') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-gear"></i> Konfigurasi DMS
+        </a>
     </div>
+
+    @if(!$dmsConfigured)
+    <div class="alert alert-warning mt-3">
+        <i class="bi bi-exclamation-triangle"></i> Koneksi DMS belum dikonfigurasi. <a href="{{ route('admin.sinkro.setting') }}">Konfigurasi sekarang</a> sebelum melakukan sinkronisasi.
+    </div>
+    @endif
 
     {{-- Tombol Sinkro --}}
     <section class="row g-3 mt-1">
@@ -106,11 +115,10 @@
                         <option value="{{ $inst->id }}">{{ $inst->nama }}</option>
                     @endforeach
                 </select>
-                <select class="form-select form-select-sm" style="max-width:160px" id="filter-kategori">
-                    <option value="">Semua Kategori</option>
-                    <option value="Lengkap">Lengkap</option>
-                    <option value="Tidak Lengkap">Tidak Lengkap</option>
-                    <option value="Belum Diverifikasi">Belum Diverifikasi</option>
+                <select class="form-select form-select-sm" style="max-width:160px" id="filter-kedhuk">
+                    <option value="">Semua Status</option>
+                    <option value="1">Aktif</option>
+                    <option value="0">Pensiun</option>
                 </select>
                 <input class="form-control form-control-sm" style="max-width:200px" type="search" placeholder="Cari NIP/Nama..." id="search-arsip">
             </div>
@@ -123,13 +131,12 @@
                         <th>NIP</th>
                         <th>Nama</th>
                         <th>Instansi</th>
-                        <th>Kategori 2026</th>
-                        <th>Skor 2026</th>
+                        <th>Status</th>
                         <th>Update</th>
                     </tr>
                 </thead>
                 <tbody id="arsip-tbody">
-                    <tr><td colspan="7" class="text-center text-muted py-4">Memuat...</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Memuat...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -198,12 +205,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
-    function kategoriBadge(kategori) {
-        if (!kategori) return '<span class="badge text-bg-secondary">-</span>';
-        const colors = { 'Lengkap': 'success', 'Tidak Lengkap': 'danger', 'Belum Diverifikasi': 'warning' };
-        return `<span class="badge text-bg-${colors[kategori] || 'secondary'}">${kategori}</span>`;
-    }
-
     // --- INSTANSI TABLE ---
     let instansiPage = 1;
     let instansiSearch = '';
@@ -259,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let arsipPage = 1;
     let arsipSearch = '';
     let arsipInstansi = '';
-    let arsipKategori = '';
+    let arsipKedhuk = '';
     let arsipTimer;
 
     function loadArsip(page) {
@@ -267,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams({ page: arsipPage });
         if (arsipSearch) params.set('search', arsipSearch);
         if (arsipInstansi) params.set('instansi_id', arsipInstansi);
-        if (arsipKategori) params.set('kategori', arsipKategori);
+        if (arsipKedhuk !== '') params.set('is_kedhuk_aktif', arsipKedhuk);
 
         fetch(`{{ route('admin.sinkro.arsip-pns.data') }}?${params}`)
             .then(r => r.json())
@@ -279,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('arsip-showing').textContent = showingText(meta);
 
                 if (!res.data.length) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Belum ada data. Sinkro arsip PNS terlebih dahulu.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Belum ada data. Sinkro arsip PNS terlebih dahulu.</td></tr>';
                     document.getElementById('arsip-pagination').innerHTML = '';
                     return;
                 }
@@ -288,14 +289,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 res.data.forEach((row, i) => {
                     const no = (res.current_page - 1) * res.per_page + i + 1;
                     const instansiNama = row.instansi ? row.instansi.nama : '-';
-                    const skor = row.skor_arsip_2026 !== null ? parseFloat(row.skor_arsip_2026).toFixed(2) + '%' : '-';
+                    const statusBadge = row.is_kedhuk_aktif
+                        ? '<span class="badge text-bg-success">Aktif</span>'
+                        : '<span class="badge text-bg-secondary">Pensiun</span>';
                     html += `<tr>
                         <td>${no}</td>
                         <td><code>${row.nip || '-'}</code></td>
                         <td>${row.nama || '-'}</td>
                         <td><small>${instansiNama}</small></td>
-                        <td>${kategoriBadge(row.kategori_kelengkapan_2026)}</td>
-                        <td>${skor}</td>
+                        <td>${statusBadge}</td>
                         <td><small>${formatDate(row.updated_at)}</small></td>
                     </tr>`;
                 });
@@ -304,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(() => {
                 document.getElementById('arsip-tbody').innerHTML =
-                    '<tr><td colspan="7" class="text-center text-danger py-4">Gagal memuat data.</td></tr>';
+                    '<tr><td colspan="6" class="text-center text-danger py-4">Gagal memuat data.</td></tr>';
             });
     }
 
@@ -317,8 +319,8 @@ document.addEventListener('DOMContentLoaded', function () {
         arsipInstansi = this.value; loadArsip(1);
     });
 
-    document.getElementById('filter-kategori').addEventListener('change', function () {
-        arsipKategori = this.value; loadArsip(1);
+    document.getElementById('filter-kedhuk').addEventListener('change', function () {
+        arsipKedhuk = this.value; loadArsip(1);
     });
 
     loadArsip(1);

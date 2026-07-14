@@ -64,13 +64,14 @@ return [
             ]) : [],
         ],
 
+        // DMS connection - config diset runtime dari app_settings (encrypted)
         'dms' => [
             'driver' => 'mysql',
-            'host' => env('DMS_DB_HOST', '10.100.9.138'),
-            'port' => env('DMS_DB_PORT', '3306'),
-            'database' => env('DMS_DB_DATABASE', 'dokumentakah'),
-            'username' => env('DMS_DB_USERNAME', 'iqbal_ak'),
-            'password' => env('DMS_DB_PASSWORD', ''),
+            'host' => '',
+            'port' => '3306',
+            'database' => '',
+            'username' => '',
+            'password' => '',
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

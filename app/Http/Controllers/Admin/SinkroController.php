@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\ArsipPns;
 use App\Models\Instansi;
 use Illuminate\Http\Request;
@@ -14,8 +15,73 @@ class SinkroController extends Controller
     public function index()
     {
         $instansiList = Instansi::orderBy('nama')->get();
+        $dmsConfig = AppSetting::getDmsConfig();
+        $dmsConfigured = !empty($dmsConfig['host']) && !empty($dmsConfig['database']);
 
-        return view('admin.sinkro.index', compact('instansiList'));
+        return view('admin.sinkro.index', compact('instansiList', 'dmsConfigured'));
+    }
+
+    /**
+     * Set DMS connection config dari database (encrypted).
+     */
+    private function configureDms(): void
+    {
+        $config = AppSetting::getDmsConfig();
+
+        config([
+            'database.connections.dms.host' => $config['host'],
+            'database.connections.dms.port' => $config['port'],
+            'database.connections.dms.database' => $config['database'],
+            'database.connections.dms.username' => $config['username'],
+            'database.connections.dms.password' => $config['password'],
+        ]);
+
+        // Purge existing connection agar config baru dipakai
+        DB::purge('dms');
+    }
+
+    public function settingDms()
+    {
+        $config = AppSetting::getDmsConfig();
+
+        return view('admin.sinkro.setting', compact('config'));
+    }
+
+    public function updateSettingDms(Request $request)
+    {
+        $request->validate([
+            'host' => 'required|string',
+            'port' => 'required|string',
+            'database' => 'required|string',
+            'username' => 'required|string',
+            'password' => 'nullable|string',
+        ]);
+
+        AppSetting::setValue('dms_db_host', $request->input('host'));
+        AppSetting::setValue('dms_db_port', $request->input('port'));
+        AppSetting::setValue('dms_db_database', $request->input('database'));
+        AppSetting::setValue('dms_db_username', $request->input('username'));
+
+        // Password hanya diupdate jika diisi (agar tidak overwrite saat edit lain)
+        if ($request->filled('password')) {
+            AppSetting::setValue('dms_db_password', $request->input('password'), encrypt: true);
+        }
+
+        return redirect()->route('admin.sinkro.index')->with('success', 'Konfigurasi DMS berhasil disimpan.');
+    }
+
+    public function testConnection()
+    {
+        try {
+            $this->configureDms();
+            DB::connection('dms')->getPdo();
+
+            return response()->json(['success' => true, 'message' => 'Koneksi ke DMS berhasil!']);
+        } catch (\Exception $e) {
+            Log::error('Test koneksi DMS gagal: ' . $e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Gagal koneksi ke DMS. Periksa konfigurasi.'], 422);
+        }
     }
 
     // --- AJAX Pagination Endpoints ---
@@ -48,8 +114,8 @@ class SinkroController extends Controller
             $query->where('instansi_kerja_id', $instansiId);
         }
 
-        if ($kategori = $request->input('kategori')) {
-            $query->where('kategori_kelengkapan_2026', $kategori);
+        if ($request->has('is_kedhuk_aktif') && $request->input('is_kedhuk_aktif') !== '') {
+            $query->where('is_kedhuk_aktif', $request->input('is_kedhuk_aktif'));
         }
 
         $data = $query->orderBy('nama')->paginate(15);
@@ -62,6 +128,7 @@ class SinkroController extends Controller
     public function sinkroInstansi()
     {
         try {
+            $this->configureDms();
             $dataRemote = DB::connection('dms')
                 ->table('instansi')
                 ->where('kantor_regional_id', '00')
@@ -100,6 +167,7 @@ class SinkroController extends Controller
         $instansiId = $request->input('instansi_id');
 
         try {
+            $this->configureDms();
             $instansiIds = Instansi::pluck('id')->toArray();
 
             if (empty($instansiIds)) {
