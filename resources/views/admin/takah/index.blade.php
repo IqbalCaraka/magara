@@ -182,6 +182,8 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const baseUrl = '{{ url('/') }}';
+
     function buildPagination(meta, containerId, callback) {
         const nav = document.getElementById(containerId);
         if (meta.last_page <= 1) { nav.innerHTML = ''; return; }
@@ -317,13 +319,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td><small>${formatDate(row.date_created)}</small></td>
                         <td>
                             <div class="d-flex gap-1">
-                                <a href="/admin/scanning/${row.nip}" class="btn btn-sm btn-outline-success" title="Scanning Dokumen">
+                                <a href="${baseUrl}/admin/scanning/${row.nip}" class="btn btn-sm btn-outline-success" title="Scanning Dokumen">
                                     <i class="bi bi-upc-scan"></i>
                                 </a>
-                                <a href="/admin/takah/${row.id}/edit" class="btn btn-sm btn-outline-primary" title="Edit Takah">
+                                <a href="${baseUrl}/admin/takah/${row.id}/edit" class="btn btn-sm btn-outline-primary" title="Edit Takah">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form action="/admin/takah/${row.id}" method="POST" onsubmit="return confirm('Hapus data ini?')">
+                                <form action="${baseUrl}/admin/takah/${row.id}" method="POST" onsubmit="return confirm('Hapus data ini?')">
                                     <input type="hidden" name="_token" value="${document.querySelector('meta[name=csrf-token]').content}">
                                     <input type="hidden" name="_method" value="DELETE">
                                     <button class="btn btn-sm btn-outline-danger" type="submit" title="Hapus">
